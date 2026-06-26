@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Http\Controllers\Api\Customer;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Customer\StoreAddressRequest;
+use App\Http\Requests\Customer\UpdateAddressRequest;
+use App\Http\Resources\AddressResource;
+use App\Models\Address;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class AddressController extends Controller
+{
+    public function index(Request $request)
+    {
+        return AddressResource::collection($request->user()->addresses()->latest()->get());
+    }
+
+    public function store(StoreAddressRequest $request): JsonResponse
+    {
+        $address = $request->user()->addresses()->create($request->validated());
+
+        return response()->json(new AddressResource($address), 201);
+    }
+
+    public function update(UpdateAddressRequest $request, Address $address): AddressResource
+    {
+        abort_unless($address->user_id === $request->user()->id, 403);
+
+        $address->update($request->validated());
+
+        return new AddressResource($address->refresh());
+    }
+
+    public function destroy(Request $request, Address $address): JsonResponse
+    {
+        abort_unless($address->user_id === $request->user()->id, 403);
+
+        $address->delete();
+
+        return response()->json(['message' => 'Address deleted']);
+    }
+}
