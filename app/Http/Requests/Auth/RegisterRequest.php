@@ -21,6 +21,7 @@ class RegisterRequest extends FormRequest
             'phone' => ['required', 'string', 'max:30', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['nullable', 'in:customer,restaurant_owner,courier'],
+            'referral_code' => ['nullable', 'string', 'max:32'],
         ];
     }
 }

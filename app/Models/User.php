@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Role;
+use App\Services\ReferralCodeService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -21,6 +22,9 @@ class User extends Authenticatable
         'phone',
         'password',
         'role',
+        'referral_code',
+        'referred_by_user_id',
+        'referred_at',
     ];
 
     protected $hidden = [
@@ -34,7 +38,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => Role::class,
+            'referred_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user): void {
+            if (! $user->referral_code) {
+                $user->referral_code = app(ReferralCodeService::class)->generate();
+            }
+        });
     }
 
     public function restaurant()
@@ -55,6 +69,26 @@ class User extends Authenticatable
     public function wallet()
     {
         return $this->hasOne(Wallet::class);
+    }
+
+    public function referrer()
+    {
+        return $this->belongsTo(User::class, 'referred_by_user_id');
+    }
+
+    public function referrals()
+    {
+        return $this->hasMany(Referral::class, 'referrer_user_id');
+    }
+
+    public function referralRewards()
+    {
+        return $this->hasMany(ReferralReward::class, 'referrer_user_id');
+    }
+
+    public function buyForMeRequests()
+    {
+        return $this->hasMany(BuyForMeRequest::class, 'requester_user_id');
     }
 
     public function pushTokens()

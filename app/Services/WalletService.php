@@ -12,15 +12,22 @@ class WalletService
 {
     public function credit(User $user, array $data): array
     {
-        return $this->applyChange($user, WalletTransactionType::Credit, $data);
+        return $this->applyChange($user, WalletTransactionType::Credit, $data, 'credit');
     }
 
     public function debit(User $user, array $data): array
     {
-        return $this->applyChange($user, WalletTransactionType::Debit, $data);
+        return $this->applyChange($user, WalletTransactionType::Debit, $data, 'debit');
     }
 
-    private function applyChange(User $user, WalletTransactionType $type, array $data): array
+    public function record(User $user, WalletTransactionType $type, array $data): array
+    {
+        $direction = $data['direction'] ?? 'credit';
+
+        return $this->applyChange($user, $type, $data, $direction);
+    }
+
+    private function applyChange(User $user, WalletTransactionType $type, array $data, string $direction): array
     {
         $wallet = Wallet::firstOrCreate(
             ['user_id' => $user->id],
@@ -30,7 +37,8 @@ class WalletService
         return DB::transaction(function () use ($wallet, $user, $type, $data): array {
             $balanceBefore = (float) $wallet->balance;
             $amount = (float) $data['amount'];
-            $balanceAfter = $type === WalletTransactionType::Debit
+            $direction = $data['direction'] ?? 'credit';
+            $balanceAfter = $direction === 'debit'
                 ? $balanceBefore - $amount
                 : $balanceBefore + $amount;
 
@@ -44,7 +52,8 @@ class WalletService
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference' => $data['reference'] ?? null,
-                'metadata' => ['note' => $data['note'] ?? null],
+                'order_id' => $data['order_id'] ?? null,
+                'metadata' => $data['metadata'] ?? ['note' => $data['note'] ?? null],
             ]);
 
             return [
