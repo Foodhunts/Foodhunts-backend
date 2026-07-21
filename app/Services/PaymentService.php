@@ -7,6 +7,7 @@ use App\Models\BuyForMeRequest;
 use App\Models\Order;
 use App\Models\PaymentAttempt;
 use App\Models\User;
+use App\Models\PaystackEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -139,9 +140,18 @@ class PaymentService
         }
 
         $event = $request->json()->all();
+        $eventId = (string) ($request->header('x-paystack-event-id') ?: data_get($event, 'data.id', ''));
+        $storedEvent = PaystackEvent::query()->firstOrCreate(
+            ['event_id' => $eventId !== '' ? $eventId : hash('sha256', $request->getContent())],
+            ['event' => (string) ($event['event'] ?? 'unknown'), 'reference' => data_get($event, 'data.reference'), 'payload' => $event, 'status' => 'received']
+        );
+        if ($storedEvent->status === 'processed') {
+            return ['status' => 'already_processed'];
+        }
         Log::info('Paystack webhook received', ['event' => $event['event'] ?? null]);
 
         if (($event['event'] ?? null) !== 'charge.success') {
+            $storedEvent->update(['status' => 'ignored']);
             return ['status' => 'ignored'];
         }
 
@@ -149,12 +159,14 @@ class PaymentService
         $reference = (string) ($gatewayData['reference'] ?? '');
 
         if ($reference === '') {
+            $storedEvent->update(['status' => 'ignored']);
             return ['status' => 'ignored'];
         }
 
         $attempt = PaymentAttempt::query()->where('reference', $reference)->first();
 
         if ($attempt && ($attempt->verified_at || $attempt->status === PaymentStatus::Paid->value)) {
+            $storedEvent->update(['status' => 'processed']);
             return ['status' => 'already_processed'];
         }
 
@@ -174,6 +186,7 @@ class PaymentService
                         ]);
                     }
 
+                    $storedEvent->update(['status' => 'processed']);
                     return ['status' => 'ok'];
                 }
             }
@@ -192,6 +205,7 @@ class PaymentService
                 $this->referralRewardService->creditRewardForOrder($order);
             }
 
+            $storedEvent->update(['status' => 'processed']);
             return ['status' => 'ok'];
         }
 
@@ -200,6 +214,7 @@ class PaymentService
             $this->buyForMeService->finalizePayment($buyForMeRequest, $gatewayData);
         }
 
+        $storedEvent->update(['status' => 'processed']);
         return ['status' => 'ok'];
     }
 

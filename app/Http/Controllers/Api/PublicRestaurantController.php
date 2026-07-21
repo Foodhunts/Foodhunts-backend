@@ -28,4 +28,14 @@ class PublicRestaurantController extends Controller
     {
         return MenuItemResource::collection($this->restaurantService->publicMenuItems($restaurant));
     }
+
+    public function menuItem(\App\Models\MenuItem $menuItem)
+    {
+        return response()->json(['success' => true, 'message' => 'Menu item fetched successfully', 'data' => new \App\Http\Resources\MenuItemResource($menuItem->load('menu'))]);
+    }
+
+    public function activeAds()
+    {
+        return response()->json(['success' => true, 'message' => 'Active advertisements fetched successfully', 'data' => []]);
+    }
 }

@@ -29,15 +29,24 @@ class WalletService
 
     private function applyChange(User $user, WalletTransactionType $type, array $data, string $direction): array
     {
-        $wallet = Wallet::firstOrCreate(
-            ['user_id' => $user->id],
-            ['balance' => 0, 'currency' => 'NGN']
-        );
-
-        return DB::transaction(function () use ($wallet, $user, $type, $data): array {
+        return DB::transaction(function () use ($user, $type, $data, $direction): array {
+            $wallet = Wallet::query()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['balance' => 0, 'currency' => 'NGN']
+            );
+            $wallet = Wallet::query()->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
             $balanceBefore = (float) $wallet->balance;
             $amount = (float) $data['amount'];
-            $direction = $data['direction'] ?? 'credit';
+            if ($amount <= 0) {
+                throw new \InvalidArgumentException('Wallet amount must be greater than zero.');
+            }
+            if ($direction === 'debit' && $balanceBefore < $amount) {
+                throw new \RuntimeException('Insufficient wallet balance.');
+            }
+            $reference = $data['reference'] ?? null;
+            if ($reference && WalletTransaction::query()->where('reference', $reference)->exists()) {
+                return ['wallet' => $wallet, 'transaction' => WalletTransaction::query()->where('reference', $reference)->first(), 'status' => 'already_processed'];
+            }
             $balanceAfter = $direction === 'debit'
                 ? $balanceBefore - $amount
                 : $balanceBefore + $amount;
@@ -53,6 +62,9 @@ class WalletService
                 'balance_after' => $balanceAfter,
                 'reference' => $data['reference'] ?? null,
                 'order_id' => $data['order_id'] ?? null,
+                'category' => $data['category'] ?? null,
+                'direction' => null,
+                'status' => $data['status'] ?? 'completed',
                 'metadata' => $data['metadata'] ?? ['note' => $data['note'] ?? null],
             ]);
 

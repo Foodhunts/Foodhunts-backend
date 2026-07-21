@@ -51,6 +51,14 @@ class BuyForMeController extends Controller
         return response()->json($buyForMeRequest->load(['restaurant', 'order']));
     }
 
+    public function status(Request $request, string $token): JsonResponse
+    {
+        abort_unless($this->featureFlagService->enabled('BUY_FOR_ME'), 404);
+        $buyForMeRequest = $this->buyForMeService->findByToken($token);
+        abort_unless($buyForMeRequest->requester_user_id === $request->user()->id, 403);
+        return response()->json(['success' => true, 'message' => 'Buy For Me status fetched successfully', 'data' => ['status' => $buyForMeRequest->status, 'order_id' => $buyForMeRequest->order_id, 'payment_reference' => $buyForMeRequest->payment_reference]]);
+    }
+
     public function cancel(Request $request, BuyForMeRequest $buyForMeRequest): JsonResponse
     {
         abort_unless($this->featureFlagService->enabled('BUY_FOR_ME'), 404);

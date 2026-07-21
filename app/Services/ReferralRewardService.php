@@ -40,7 +40,7 @@ class ReferralRewardService
             return ['status' => 'skipped', 'reason' => 'No eligible amount'];
         }
 
-        $rewardAmount = round($eligibleAmount * 0.05, 2);
+        $rewardAmount = round($eligibleAmount * 0.01, 2);
 
         return DB::transaction(function () use ($order, $referrerId, $eligibleAmount, $rewardAmount): array {
             $existing = ReferralReward::query()
@@ -57,7 +57,7 @@ class ReferralRewardService
                 'referrer_user_id' => $referrerId,
                 'referred_user_id' => $order->user_id,
                 'order_id' => $order->id,
-                'reward_percentage' => 5.00,
+                'reward_percentage' => 1.00,
                 'order_amount' => $eligibleAmount,
                 'reward_amount' => $rewardAmount,
                 'status' => 'pending',
@@ -72,12 +72,13 @@ class ReferralRewardService
 
                 $walletResult = $this->walletService->record(
                     $referrer,
-                    WalletTransactionType::ReferralBonus,
+                    WalletTransactionType::Credit,
                     [
                         'amount' => $rewardAmount,
                         'reference' => 'referral_reward:'.$order->id,
                         'note' => 'Referral reward from order #'.($order->order_reference ?? $order->id),
                         'direction' => 'credit',
+                        'category' => null,
                         'order_id' => $order->id,
                         'metadata' => [
                             'source' => 'referral_reward',
@@ -134,12 +135,13 @@ class ReferralRewardService
 
                 $this->walletService->record(
                     $referrer,
-                    WalletTransactionType::Reversal,
+                    WalletTransactionType::Debit,
                     [
                         'amount' => $locked->reward_amount,
                         'reference' => 'referral_reward_reversal:'.$order->id,
                         'note' => 'Referral reward reversal for order #'.($order->order_reference ?? $order->id),
                         'direction' => 'debit',
+                        'category' => 'reversal',
                         'order_id' => $order->id,
                         'metadata' => [
                             'source' => 'referral_reward_reversal',
