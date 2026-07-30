@@ -2,77 +2,66 @@
 
 namespace App\Services;
 
+use App\Exceptions\InvalidSupabaseTokenException;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthService
 {
-    public function __construct(
-        private readonly ReferralService $referralService,
-        private readonly FeatureFlagService $featureFlagService,
-    )
+    public function __construct(private readonly SupabaseAuthService $supabaseAuth)
     {
     }
 
     public function register(RegisterRequest $request): array
     {
-        $validated = $request->validated();
-
-        $user = DB::transaction(function () use ($validated): User {
-            $user = User::create([
-                'name' => $validated['name'],
-                'first_name' => $validated['first_name'] ?? null,
-                'last_name' => $validated['last_name'] ?? null,
-                'email' => $validated['email'] ?? null,
-                'phone' => $validated['phone'],
-                'password' => Hash::make($validated['password']),
-                'role' => $validated['role'] ?? 'customer',
+        try {
+            $session = $this->supabaseAuth->signUp($request->validated());
+        } catch (InvalidSupabaseTokenException) {
+            throw ValidationException::withMessages([
+                'email' => ['Unable to register with the supplied credentials.'],
             ]);
+        }
 
-            if ($this->featureFlagService->enabled('REFERRAL_CODE') && ! empty($validated['referral_code'])) {
-                $this->referralService->applyReferralCode($user, $validated['referral_code']);
-            }
-
-            return $user;
-        });
+        $user = User::query()->find($session['user_id']);
 
         return [
-            'user' => new UserResource($user),
-            'token' => $user->createToken('mobile')->plainTextToken,
+            'user' => $user ? new UserResource($user) : null,
+            'token' => $session['access_token'] ?: null,
+            'requires_confirmation' => $session['access_token'] === null,
         ];
     }
 
     public function login(LoginRequest $request): array
     {
-        $identifier = $request->validated('login');
-        $password = $request->validated('password');
-
-        $user = User::query()
-            ->where('email', $identifier)
-            ->orWhere('phone', $identifier)
-            ->first();
-
-        if (! $user || ! Hash::check($password, $user->password)) {
+        try {
+            $session = $this->supabaseAuth->signIn(
+                $request->validated('login'),
+                $request->validated('password'),
+            );
+        } catch (InvalidSupabaseTokenException) {
             throw ValidationException::withMessages([
                 'login' => ['The provided credentials are incorrect.'],
             ]);
         }
 
+        $user = User::query()->find($session['user_id']);
+
         return [
-            'user' => new UserResource($user),
-            'token' => $user->createToken('mobile')->plainTextToken,
+            'user' => $user ? new UserResource($user) : null,
+            'token' => $session['access_token'],
         ];
     }
 
-    public function logout(?User $user): void
+    public function logout(string $accessToken): void
     {
-        if ($user?->currentAccessToken()) {
-            $user->currentAccessToken()->delete();
-        }
+        $this->supabaseAuth->logout($accessToken);
+    }
+
+    public function recoverPassword(string $email): void
+    {
+        $this->supabaseAuth->recover($email);
     }
 }

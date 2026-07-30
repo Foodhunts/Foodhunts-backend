@@ -28,7 +28,7 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $this->authService->logout($request->user());
+        $this->authService->logout((string) $request->bearerToken());
 
         return response()->json(['message' => 'Logged out']);
     }
@@ -48,12 +48,20 @@ class AuthController extends Controller
     public function forgotPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => ['required', 'email']]);
+
+        $this->authService->recoverPassword($request->string('email')->toString());
+
         return response()->json(['success' => true, 'message' => 'If the account exists, a reset link has been sent.', 'data' => []]);
     }
 
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate(['email' => ['required', 'email'], 'token' => ['required'], 'password' => ['required', 'confirmed', 'min:8']]);
-        return response()->json(['success' => true, 'message' => 'Password reset request accepted.', 'data' => []]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Complete password reset through the Supabase recovery session.',
+            'code' => 'SUPABASE_RECOVERY_SESSION_REQUIRED',
+        ], 422);
     }
 }

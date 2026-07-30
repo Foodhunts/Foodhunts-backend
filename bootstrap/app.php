@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use App\Exceptions\SupabaseAuthUnavailableException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,9 +21,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => App\Http\Middleware\EnsureAdminRole::class,
             'role' => App\Http\Middleware\EnsureRole::class,
+            'supabase.auth' => App\Http\Middleware\AuthenticateWithSupabase::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (SupabaseAuthUnavailableException $exception, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication service temporarily unavailable.',
+                    'code' => 'AUTHENTICATION_UPSTREAM_UNAVAILABLE',
+                ], 503);
+            }
+        });
+
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $throwable): bool {
             return $request->is('api/*') || $request->expectsJson();
         });

@@ -33,7 +33,7 @@ Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
     });
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware('supabase.auth')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
     });
@@ -47,7 +47,7 @@ Route::prefix('restaurants')->group(function (): void {
 
 Route::post('/payments/paystack/webhook', [PaymentController::class, 'webhook']);
 
-Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware('supabase.auth')->group(function (): void {
     Route::post('/push-tokens/register', [PushTokenController::class, 'store']);
     Route::get('/referrals/me', [CustomerReferralController::class, 'me']);
     Route::post('/referrals/apply', [CustomerReferralController::class, 'apply']);
@@ -112,7 +112,7 @@ Route::prefix('v2')->group(function (): void {
             ->middleware('throttle:10,1');
         Route::post('/reset-password', [AuthController::class, 'resetPassword'])
             ->middleware('throttle:10,1');
-        Route::middleware('auth:sanctum')->group(function (): void {
+        Route::middleware('supabase.auth')->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
             Route::patch('/profile', [AuthController::class, 'profile']);
@@ -124,7 +124,7 @@ Route::prefix('v2')->group(function (): void {
         ->middleware('throttle:20,1');
     Route::post('/webhooks/paystack', [PaymentController::class, 'webhook']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware('supabase.auth')->group(function (): void {
         Route::apiResource('addresses', AddressController::class)
             ->except(['show'])
             ->names([
