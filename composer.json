@@ -4,9 +4,9 @@
   "description": "Foodhunts Laravel API backend",
   "require": {
     "php": "^8.2",
-    "laravel/framework": "^11.0",
-    "laravel/sanctum": "^4.0",
-    "guzzlehttp/guzzle": "^7.8"
+    "guzzlehttp/guzzle": "^7.8",
+    "laravel/framework": "^12.0",
+    "laravel/sanctum": "^4.0"
   },
   "require-dev": {
     "fakerphp/faker": "^1.23",
