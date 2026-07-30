@@ -11,9 +11,14 @@ class EnsureRole
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
+        $userRole = $user?->role;
 
-        if (! $user || ! in_array($user->role, $roles, true)) {
-            abort(403, 'Forbidden');
+        if ($userRole instanceof \BackedEnum) {
+            $userRole = $userRole->value;
+        }
+
+        if (! $user || ! in_array($userRole, $roles, true)) {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
         return $next($request);

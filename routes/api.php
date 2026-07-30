@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\AdminOrderController;
 use App\Http\Controllers\Api\Admin\AdminBuyForMeController;
+use App\Http\Controllers\Api\Admin\AdminPaymentAttemptController;
 use App\Http\Controllers\Api\Admin\AdminReferralController;
 use App\Http\Controllers\Api\Admin\AdminRestaurantController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
@@ -24,11 +25,14 @@ Route::get('/health', HealthController::class);
 Route::get('/feature-flags', [FeatureFlagController::class, 'index']);
 
 Route::get('/public/buy-for-me/{token}', [PublicBuyForMeController::class, 'show']);
-Route::post('/public/buy-for-me/{token}/pay', [PublicBuyForMeController::class, 'pay']);
+Route::post('/public/buy-for-me/{token}/pay', [PublicBuyForMeController::class, 'pay'])
+    ->middleware('throttle:20,1');
 
 Route::prefix('auth')->group(function (): void {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:20,1')->group(function (): void {
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'login']);
+    });
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
@@ -68,7 +72,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::prefix('payments')->group(function (): void {
-        Route::post('/initialize', [PaymentController::class, 'initialize']);
+        Route::post('/initialize', [PaymentController::class, 'initialize'])
+            ->middleware('throttle:20,1');
         Route::post('/verify', [PaymentController::class, 'verify']);
     });
 
@@ -99,10 +104,14 @@ Route::prefix('v2')->group(function (): void {
     Route::get('/ads/active', [PublicRestaurantController::class, 'activeAds']);
 
     Route::prefix('auth')->group(function (): void {
-        Route::post('/register', [AuthController::class, 'register']);
-        Route::post('/login', [AuthController::class, 'login']);
-        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+        Route::middleware('throttle:20,1')->group(function (): void {
+            Route::post('/register', [AuthController::class, 'register']);
+            Route::post('/login', [AuthController::class, 'login']);
+        });
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+            ->middleware('throttle:10,1');
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+            ->middleware('throttle:10,1');
         Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
@@ -111,11 +120,19 @@ Route::prefix('v2')->group(function (): void {
     });
 
     Route::get('/buy-for-me/{token}', [PublicBuyForMeController::class, 'show']);
-    Route::post('/buy-for-me/{token}/initialize-payment', [PublicBuyForMeController::class, 'pay']);
+    Route::post('/buy-for-me/{token}/initialize-payment', [PublicBuyForMeController::class, 'pay'])
+        ->middleware('throttle:20,1');
     Route::post('/webhooks/paystack', [PaymentController::class, 'webhook']);
 
     Route::middleware('auth:sanctum')->group(function (): void {
-        Route::apiResource('addresses', AddressController::class)->except(['show']);
+        Route::apiResource('addresses', AddressController::class)
+            ->except(['show'])
+            ->names([
+                'index' => 'v2.addresses.index',
+                'store' => 'v2.addresses.store',
+                'update' => 'v2.addresses.update',
+                'destroy' => 'v2.addresses.destroy',
+            ]);
         Route::post('/addresses/default', [AddressController::class, 'setDefault']);
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders', [OrderController::class, 'store']);
@@ -130,7 +147,8 @@ Route::prefix('v2')->group(function (): void {
         Route::delete('/push-tokens/{pushToken}', [PushTokenController::class, 'destroy']);
 
         Route::prefix('payments')->group(function (): void {
-            Route::post('/paystack/initialize', [PaymentController::class, 'initialize']);
+            Route::post('/paystack/initialize', [PaymentController::class, 'initialize'])
+                ->middleware('throttle:20,1');
             Route::post('/paystack/verify', [PaymentController::class, 'verify']);
         });
 
@@ -149,7 +167,7 @@ Route::prefix('v2')->group(function (): void {
             Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
             Route::post('/wallets/{user}/credit', [AdminWalletController::class, 'credit']);
             Route::post('/wallets/{user}/reverse', [AdminWalletController::class, 'debit']);
-            Route::get('/payment-attempts', fn () => response()->json(['success' => true, 'message' => 'Payment attempts fetched.', 'data' => \App\Models\PaymentAttempt::latest()->paginate(20)]));
+            Route::get('/payment-attempts', [AdminPaymentAttemptController::class, 'index']);
         });
     });
 });
