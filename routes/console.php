@@ -3,10 +3,55 @@
 use App\Models\User;
 use App\Services\ReferralCodeService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 Artisan::command('foodhunts:heartbeat', function (): void {
     $this->comment('Foodhunts backend is ready.');
 })->purpose('Print a backend readiness message');
+
+Artisan::command('foodhunts:test-r2', function (): int {
+    $disk = Storage::disk('r2');
+    $path = 'codex-verification/'.Str::uuid().'.txt';
+    $contents = 'Foodhunts R2 verification object.';
+    $uploaded = false;
+
+    try {
+        if (! $disk->put($path, $contents, ['ContentType' => 'text/plain'])) {
+            $this->error('R2 upload failed.');
+
+            return 1;
+        }
+
+        $uploaded = true;
+
+        $existsAfterUpload = $disk->exists($path);
+        $readMatches = $disk->get($path) === $contents;
+        $size = $disk->size($path);
+        $mimeType = $disk->mimeType($path);
+
+        if (! $existsAfterUpload || ! $readMatches || $size !== strlen($contents)) {
+            $this->error('R2 read or inspection failed.');
+
+            return 1;
+        }
+
+        $this->info('R2 upload, read, and inspection succeeded.');
+        $this->line("Size: {$size} bytes; MIME type: {$mimeType}");
+
+        return 0;
+    } finally {
+        if ($uploaded) {
+            try {
+                if ($disk->exists($path)) {
+                    $disk->delete($path);
+                }
+            } catch (Throwable) {
+                $this->warn('R2 test-object cleanup could not be confirmed.');
+            }
+        }
+    }
+})->purpose('Verify the dedicated Cloudflare R2 disk with a temporary object');
 
 Artisan::command('foodhunts:backfill-referral-codes', function (): void {
     $service = app(ReferralCodeService::class);
