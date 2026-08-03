@@ -12,13 +12,12 @@ class SupabaseAuthService
 {
     public function user(string $accessToken): array
     {
-        $response = $this->send('get', '/auth/v1/user', [
-            'Authorization' => 'Bearer '.$accessToken,
-        ]);
-
-        if ($response->status() === 401 || $response->status() === 403) {
-            throw new InvalidSupabaseTokenException();
-        }
+        $response = $this->send(
+            'get',
+            '/auth/v1/user',
+            [],
+            $accessToken
+        );
 
         return $this->normalizeUser($response->json());
     }
