@@ -11,15 +11,25 @@ class RestaurantResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'owner_id' => $this->owner_id,
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
             'phone_number' => $this->phone_number,
             'logo_url' => $this->logo_url,
             'cover_image_url' => $this->cover_image_url,
+            'header_image_url' => $this->header_image_url ?? $this->cover_image_url,
+            'street' => $this->street,
+            'city' => $this->city,
+            'state' => $this->state,
+            'country' => $this->country,
+            'postal_code' => $this->postal_code,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'type' => $this->type,
+            'business_hours' => $this->business_hours,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }

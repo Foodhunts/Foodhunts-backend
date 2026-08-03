@@ -14,7 +14,13 @@ class AddressController extends Controller
 {
     public function index(Request $request)
     {
-        return AddressResource::collection($request->user()->addresses()->latest()->get());
+        $validated = $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return AddressResource::collection(
+            $request->user()->addresses()->latest()->paginate((int) ($validated['per_page'] ?? 20))
+        );
     }
 
     public function store(StoreAddressRequest $request): JsonResponse

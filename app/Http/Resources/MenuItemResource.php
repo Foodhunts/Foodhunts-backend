@@ -18,6 +18,9 @@ class MenuItemResource extends JsonResource
             'price' => $this->price,
             'is_available' => $this->is_available,
             'image_url' => $this->image_url,
+            'menu_name' => $this->whenLoaded('menu', fn () => $this->menu->name),
+            'requires_takeaway' => $this->whenLoaded('menu', fn () => (bool) $this->menu->requires_takeaway),
+            'takeaway_price' => $this->whenLoaded('menu', fn () => $this->menu->takeaway_price),
         ];
     }
 }

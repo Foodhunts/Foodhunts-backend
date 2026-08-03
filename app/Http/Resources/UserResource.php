@@ -16,11 +16,15 @@ class UserResource extends JsonResource
             'last_name' => $this->last_name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'phone_number' => $this->phone,
             'role' => $this->role,
+            'is_admin' => $this->role?->value === 'admin',
+            'onboarding_complete' => (bool) ($this->onboarding_complete ?? false),
             'referral_code' => $this->referral_code,
             'referred_by_user_id' => $this->referred_by_user_id,
             'referred_at' => $this->referred_at,
             'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
         ];
     }
 }
