@@ -28,6 +28,7 @@ class RestaurantResource extends JsonResource
             'type' => $this->type,
             'business_hours' => $this->business_hours,
             'is_active' => $this->is_active,
+            'kyc_status' => $this->kyc_status,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
