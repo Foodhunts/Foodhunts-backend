@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use App\Services\Media\Exceptions\MediaConfigurationException;
+use App\Services\Media\MediaConfigurationValidator;
 use App\Services\ReferralCodeService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +13,14 @@ Artisan::command('foodhunts:heartbeat', function (): void {
 })->purpose('Print a backend readiness message');
 
 Artisan::command('foodhunts:test-r2', function (): int {
+    try {
+        app(MediaConfigurationValidator::class)->requireR2(false);
+    } catch (MediaConfigurationException $exception) {
+        $this->error($exception->getMessage());
+
+        return 1;
+    }
+
     $disk = Storage::disk('r2');
     $path = 'codex-verification/'.Str::uuid().'.txt';
     $contents = 'Foodhunts R2 verification object.';
