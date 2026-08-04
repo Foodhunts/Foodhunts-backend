@@ -39,9 +39,8 @@ final class MediaStorageService
         }
 
         $objectKey = $this->keyGenerator->generate($category, $context, $contentType);
-        $disk = Storage::disk('r2');
-
         try {
+            $disk = Storage::disk('r2');
             $stored = $disk->putFileAs(
                 dirname($objectKey),
                 $file,

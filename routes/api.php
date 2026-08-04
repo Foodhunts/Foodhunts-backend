@@ -1,23 +1,24 @@
 <?php
 
-use App\Http\Controllers\Api\Admin\AdminOrderController;
 use App\Http\Controllers\Api\Admin\AdminBuyForMeController;
+use App\Http\Controllers\Api\Admin\AdminOrderController;
 use App\Http\Controllers\Api\Admin\AdminPaymentAttemptController;
 use App\Http\Controllers\Api\Admin\AdminReferralController;
 use App\Http\Controllers\Api\Admin\AdminRestaurantController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWalletController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\Customer\BuyForMeController as CustomerBuyForMeController;
 use App\Http\Controllers\Api\Customer\AddressController;
+use App\Http\Controllers\Api\Customer\BuyForMeController as CustomerBuyForMeController;
+use App\Http\Controllers\Api\Customer\OrderController;
 use App\Http\Controllers\Api\Customer\ReferralController as CustomerReferralController;
 use App\Http\Controllers\Api\FeatureFlagController;
-use App\Http\Controllers\Api\Customer\OrderController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\Media\RestaurantMediaController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\PushTokenController;
-use App\Http\Controllers\Api\PublicRestaurantController;
 use App\Http\Controllers\Api\PublicApi\BuyForMeController as PublicBuyForMeController;
+use App\Http\Controllers\Api\PublicRestaurantController;
+use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\Restaurant\RestaurantOrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -159,6 +160,14 @@ Route::prefix('v2')->group(function (): void {
             Route::post('/orders/{order}/preparing', [RestaurantOrderController::class, 'markPreparing']);
             Route::post('/orders/{order}/ready', [RestaurantOrderController::class, 'markReady']);
         });
+
+        Route::prefix('restaurants/{restaurant}')
+            ->middleware('role:restaurant_owner')
+            ->group(function (): void {
+                Route::post('/media/logo', [RestaurantMediaController::class, 'logo']);
+                Route::post('/media/cover', [RestaurantMediaController::class, 'cover']);
+                Route::post('/menu-items/{menuItem}/media', [RestaurantMediaController::class, 'menuItemImage']);
+            });
 
         Route::prefix('admin')->middleware('admin')->group(function (): void {
             Route::get('/users', [AdminUserController::class, 'index']);
