@@ -2,6 +2,7 @@
 
 return [
     'default' => env('DB_CONNECTION', 'pgsql'),
+
     'connections' => [
         'pgsql' => [
             'driver' => 'pgsql',
@@ -15,8 +16,9 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => 'prefer',
+            'sslmode' => env('DB_SSLMODE', 'require'),
         ],
     ],
+
     'migrations' => 'migrations',
 ];
