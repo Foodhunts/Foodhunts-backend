@@ -20,6 +20,7 @@ class Order extends Model
         'payment_status',
         'subtotal',
         'delivery_fee',
+        'service_charge',
         'tax_amount',
         'discount_amount',
         'total_amount',
@@ -36,6 +37,7 @@ class Order extends Model
         'payment_status' => PaymentStatus::class,
         'subtotal' => 'decimal:2',
         'delivery_fee' => 'decimal:2',
+        'service_charge' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
@@ -61,5 +63,10 @@ class Order extends Model
     public function address()
     {
         return $this->belongsTo(Address::class, 'delivery_address_id');
+    }
+
+    public function paymentAttempt()
+    {
+        return $this->belongsTo(PaymentAttempt::class, 'payment_attempt_id');
     }
 }

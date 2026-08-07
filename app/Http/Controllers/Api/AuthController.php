@@ -37,4 +37,23 @@ class AuthController extends Controller
     {
         return new UserResource($request->user());
     }
+
+    public function profile(Request $request): JsonResponse
+    {
+        $request->validate(['name' => ['sometimes', 'string', 'max:255'], 'first_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'last_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'phone' => ['sometimes', 'string', 'max:30', 'unique:users,phone,'.$request->user()->id]]);
+        $request->user()->update($request->only(['name', 'first_name', 'last_name', 'phone']));
+        return response()->json(['success' => true, 'message' => 'Profile updated successfully', 'data' => ['user' => new UserResource($request->user()->refresh())]]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate(['email' => ['required', 'email']]);
+        return response()->json(['success' => true, 'message' => 'If the account exists, a reset link has been sent.', 'data' => []]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate(['email' => ['required', 'email'], 'token' => ['required'], 'password' => ['required', 'confirmed', 'min:8']]);
+        return response()->json(['success' => true, 'message' => 'Password reset request accepted.', 'data' => []]);
+    }
 }

@@ -12,25 +12,42 @@ class WalletService
 {
     public function credit(User $user, array $data): array
     {
-        return $this->applyChange($user, WalletTransactionType::Credit, $data);
+        return $this->applyChange($user, WalletTransactionType::Credit, $data, 'credit');
     }
 
     public function debit(User $user, array $data): array
     {
-        return $this->applyChange($user, WalletTransactionType::Debit, $data);
+        return $this->applyChange($user, WalletTransactionType::Debit, $data, 'debit');
     }
 
-    private function applyChange(User $user, WalletTransactionType $type, array $data): array
+    public function record(User $user, WalletTransactionType $type, array $data): array
     {
-        $wallet = Wallet::firstOrCreate(
-            ['user_id' => $user->id],
-            ['balance' => 0, 'currency' => 'NGN']
-        );
+        $direction = $data['direction'] ?? 'credit';
 
-        return DB::transaction(function () use ($wallet, $user, $type, $data): array {
+        return $this->applyChange($user, $type, $data, $direction);
+    }
+
+    private function applyChange(User $user, WalletTransactionType $type, array $data, string $direction): array
+    {
+        return DB::transaction(function () use ($user, $type, $data, $direction): array {
+            $wallet = Wallet::query()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['balance' => 0, 'currency' => 'NGN']
+            );
+            $wallet = Wallet::query()->whereKey($wallet->id)->lockForUpdate()->firstOrFail();
             $balanceBefore = (float) $wallet->balance;
             $amount = (float) $data['amount'];
-            $balanceAfter = $type === WalletTransactionType::Debit
+            if ($amount <= 0) {
+                throw new \InvalidArgumentException('Wallet amount must be greater than zero.');
+            }
+            if ($direction === 'debit' && $balanceBefore < $amount) {
+                throw new \RuntimeException('Insufficient wallet balance.');
+            }
+            $reference = $data['reference'] ?? null;
+            if ($reference && WalletTransaction::query()->where('reference', $reference)->exists()) {
+                return ['wallet' => $wallet, 'transaction' => WalletTransaction::query()->where('reference', $reference)->first(), 'status' => 'already_processed'];
+            }
+            $balanceAfter = $direction === 'debit'
                 ? $balanceBefore - $amount
                 : $balanceBefore + $amount;
 
@@ -44,7 +61,11 @@ class WalletService
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference' => $data['reference'] ?? null,
-                'metadata' => ['note' => $data['note'] ?? null],
+                'order_id' => $data['order_id'] ?? null,
+                'category' => $data['category'] ?? null,
+                'direction' => null,
+                'status' => $data['status'] ?? 'completed',
+                'metadata' => $data['metadata'] ?? ['note' => $data['note'] ?? null],
             ]);
 
             return [

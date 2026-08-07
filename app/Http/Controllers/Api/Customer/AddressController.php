@@ -41,4 +41,13 @@ class AddressController extends Controller
 
         return response()->json(['message' => 'Address deleted']);
     }
+
+    public function setDefault(Request $request): JsonResponse
+    {
+        $request->validate(['address_id' => ['required', 'uuid', 'exists:addresses,id']]);
+        $address = $request->user()->addresses()->findOrFail($request->string('address_id'));
+        $request->user()->addresses()->update(['is_default' => false]);
+        $address->update(['is_default' => true]);
+        return response()->json(['success' => true, 'message' => 'Default address updated successfully', 'data' => new AddressResource($address->refresh())]);
+    }
 }
