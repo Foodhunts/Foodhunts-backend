@@ -24,15 +24,18 @@ class DeliveryPayloadBuilder
     /**
      * @return array<string, mixed>
      */
-    public function build(Order $order): array
+    public function build(Order $order, int $dispatchAttempt = 1): array
     {
         $order->loadMissing(['items', 'user', 'restaurant', 'address']);
 
         $pickup = $this->buildPickup($order);
         $dropoff = $this->buildDropoff($order);
 
+        // v1 rejects any field it does not know, so this payload must contain
+        // exactly the allowed keys — no extras, none omitted.
         return [
             'external_order_id' => (string) $order->id,
+            'dispatch_attempt' => $dispatchAttempt,
             'external_reference' => $order->payment_reference,
             'pickup' => $pickup,
             'dropoff' => $dropoff,
@@ -43,16 +46,62 @@ class DeliveryPayloadBuilder
                 'phone' => $this->normalizePhone($order->user?->phone),
             ],
             'pricing' => [
-                'currency' => $order->currency ?: 'NGN',
-                'partner_calculated_fee' => (float) $order->delivery_fee,
+                'currency' => 'NGN',
+                'partner_calculated_fee_minor' => $this->feeMinor($order),
             ],
             'meta' => [
-                'source' => 'foodhunts',
-                'order_id' => (string) $order->id,
+                // Singular: v1 matches this value exactly.
+                'source' => 'foodhunt',
                 'restaurant_id' => (string) $order->restaurant_id,
-                'order_total' => (float) $order->total_amount,
+                'checkout_reference' => $this->checkoutReference($order),
+                'food_ready_at' => $this->foodReadyAt($order),
             ],
         ];
+    }
+
+    /**
+     * The delivery fee in kobo.
+     *
+     * v1 takes integer minor units, and only in whole ₦100 increments: Dzpatch's
+     * order trigger rounds customer amounts up to the next ₦100, so a value it
+     * would alter is refused rather than silently creating a reconciliation gap.
+     * Rounding up here matches the trigger instead of fighting it.
+     */
+    private function feeMinor(Order $order): int
+    {
+        $kobo = (int) round(((float) $order->delivery_fee) * 100);
+
+        if ($kobo <= 0) {
+            throw new DeliveryNotDispatchableException(
+                'The order has no delivery fee to quote.'
+            );
+        }
+
+        return (int) (ceil($kobo / 10000) * 10000);
+    }
+
+    /**
+     * v1 requires a checkout reference and matches it against any quote.
+     */
+    private function checkoutReference(Order $order): string
+    {
+        $reference = trim((string) ($order->payment_reference ?? ''));
+
+        return $reference !== '' ? $reference : 'order-'.$order->id;
+    }
+
+    /**
+     * When the food is expected to be ready, as an ISO-8601 timestamp.
+     *
+     * Dzpatch uses this to time the rider search. The orders table has no
+     * ready-at column today, and dispatch is triggered at the point the order
+     * is ready, so "now" is the accurate answer rather than a placeholder. If a
+     * prep-time estimate is added later, send it here — a rider arriving before
+     * the food is ready waits, which is what this field exists to avoid.
+     */
+    private function foodReadyAt(Order $order): string
+    {
+        return now()->toIso8601String();
     }
 
     /**
@@ -174,14 +223,13 @@ class DeliveryPayloadBuilder
         return array_slice($items, 0, 100);
     }
 
-    private function buildItemsSummary(Order $order): ?string
+    /**
+     * v1 requires a non-empty items_summary, so this never returns null: an
+     * order with no countable quantity has already been refused by buildItems().
+     */
+    private function buildItemsSummary(Order $order): string
     {
-        $count = $order->items->sum('quantity');
-
-        if ($count <= 0) {
-            return null;
-        }
-
+        $count = max(1, (int) $order->items->sum('quantity'));
         $restaurant = $order->restaurant?->name;
 
         return $restaurant

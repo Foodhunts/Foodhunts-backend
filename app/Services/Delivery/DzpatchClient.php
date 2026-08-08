@@ -65,7 +65,7 @@ class DzpatchClient
      */
     public function createDelivery(array $payload, string $idempotencyKey): array
     {
-        return $this->send('POST', '', $payload, $idempotencyKey);
+        return $this->send('POST', '/deliveries', $payload, $idempotencyKey);
     }
 
     /**
@@ -73,25 +73,42 @@ class DzpatchClient
      */
     public function getDelivery(string $deliveryId): array
     {
-        return $this->send('GET', '/'.urlencode($deliveryId));
+        return $this->send('GET', '/deliveries/'.urlencode($deliveryId));
     }
 
     /**
+     * Look up a delivery by our own order id.
+     *
+     * v1 identifies a delivery by (external_order_id, dispatch_attempt) rather
+     * than external_order_id alone, because one order may make several
+     * rider-search attempts. The attempt is therefore required, not optional.
+     *
      * @return array<string, mixed>
      */
-    public function getDeliveryByExternalOrderId(string $externalOrderId): array
+    public function getDeliveryByExternalOrderId(string $externalOrderId, int $dispatchAttempt = 1): array
     {
-        return $this->send('GET', '/by-external/'.urlencode($externalOrderId));
+        return $this->send(
+            'GET',
+            '/delivery-lookup/'.urlencode($externalOrderId).'?dispatchAttempt='.$dispatchAttempt,
+        );
     }
 
     /**
+     * Cancel a delivery.
+     *
+     * v1 requires an Idempotency-Key on cancel as well as create, so a retried
+     * cancel is recognised as the same request rather than a second one.
+     *
      * @return array<string, mixed>
      */
-    public function cancelDelivery(string $deliveryId, ?string $reason = null): array
+    public function cancelDelivery(string $deliveryId, ?string $reason = null, ?string $idempotencyKey = null): array
     {
-        return $this->send('POST', '/'.urlencode($deliveryId).'/cancel', [
-            'reason' => $reason,
-        ]);
+        return $this->send(
+            'POST',
+            '/deliveries/'.urlencode($deliveryId).'/cancel',
+            ['reason' => $reason],
+            $idempotencyKey ?? 'cancel-'.$deliveryId,
+        );
     }
 
     /**

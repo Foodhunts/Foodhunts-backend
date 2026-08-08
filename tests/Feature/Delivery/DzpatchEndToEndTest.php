@@ -73,6 +73,7 @@ class DzpatchEndToEndTest extends TestCase
     {
         return [
             'external_order_id' => $externalOrderId,
+            'dispatch_attempt' => 1,
             'external_reference' => 'e2e-test-reference',
             'pickup' => [
                 'name' => 'E2E Test Restaurant',
@@ -100,11 +101,16 @@ class DzpatchEndToEndTest extends TestCase
             ],
             'pricing' => [
                 'currency' => 'NGN',
-                'partner_calculated_fee' => 1500,
+                // Integer kobo, in whole N100 increments: N1,500.
+                'partner_calculated_fee_minor' => 150000,
             ],
             'meta' => [
-                'source' => 'foodhunts',
-                'automated_test' => true,
+                // v1 matches these keys exactly and rejects any extra, so
+                // there is no room for an automated_test flag here.
+                'source' => 'foodhunt',
+                'restaurant_id' => '11111111-1111-4111-8111-111111111111',
+                'checkout_reference' => 'e2e-test-reference',
+                'food_ready_at' => now()->toIso8601String(),
             ],
         ];
     }
@@ -189,7 +195,7 @@ class DzpatchEndToEndTest extends TestCase
         // so Dzpatch refuses instead.
         $changed = $this->payload($externalOrderId);
         $changed['dropoff']['address'] = 'Somewhere completely different, Uyo';
-        $changed['pricing']['partner_calculated_fee'] = 2500;
+        $changed['pricing']['partner_calculated_fee_minor'] = 250000;
 
         try {
             $client->createDelivery($changed, (string) Str::uuid());

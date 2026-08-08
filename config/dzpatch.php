@@ -2,8 +2,14 @@
 
 return [
     /*
-     * Dzpatch partner API. Points at the partner-deliveries function; the
-     * client appends the route beneath it.
+     * Dzpatch partner API v1. Points at the partner-api-v1 function; the client
+     * appends "/deliveries" and the route beneath it.
+     *
+     * v1 is the authoritative surface: it authenticates against partner_api_keys
+     * and moves money in a single transaction. The older partner-deliveries
+     * function authenticates against the legacy partner_accounts.api_key_hash
+     * column, which Dzpatch's own Phase 0 decision record marks as retained for
+     * compatibility only.
      */
     'base_url' => env('DZPATCH_API_URL', ''),
 

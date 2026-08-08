@@ -115,7 +115,8 @@ class DeliveryDispatchService
     {
         return DB::transaction(function () use ($order): Delivery {
             $existing = Delivery::query()
-                ->where('external_order_id', (string) $order->id)
+                ->where('order_id', $order->id)
+                ->orderByDesc('dispatch_attempt')
                 ->lockForUpdate()
                 ->first();
 
@@ -123,14 +124,14 @@ class DeliveryDispatchService
                 return $existing;
             }
 
+            // v1 identifies a delivery by (external_order_id, dispatch_attempt),
+            // so a fresh attempt after a hard failure increments the attempt
+            // rather than mangling the order id. The external id then stays a
+            // true reference to our order, which is what reconciliation needs.
             return Delivery::create([
                 'order_id' => $order->id,
-                // The order id doubles as the external id on the first attempt.
-                // A retry after a hard failure needs a distinct value, because
-                // Dzpatch treats a repeat as the same delivery.
-                'external_order_id' => $existing === null
-                    ? (string) $order->id
-                    : (string) $order->id.'-'.Str::lower(Str::random(6)),
+                'external_order_id' => (string) $order->id,
+                'dispatch_attempt' => ($existing?->dispatch_attempt ?? 0) + 1,
                 'status' => DeliveryStatus::Pending->value,
                 'idempotency_key' => (string) Str::uuid(),
                 'currency' => $order->currency ?: 'NGN',
@@ -142,7 +143,7 @@ class DeliveryDispatchService
     private function send(Delivery $delivery, Order $order): Delivery
     {
         try {
-            $payload = $this->payloadBuilder->build($order);
+            $payload = $this->payloadBuilder->build($order, $delivery->dispatch_attempt ?? 1);
         } catch (DeliveryNotDispatchableException $e) {
             // Nothing was sent, so this is terminal until the underlying data
             // is corrected. Recording it makes the reason visible on the order
@@ -166,6 +167,17 @@ class DeliveryDispatchService
                 // further than our record shows, so the existing delivery is
                 // adopted instead of being treated as a failure.
                 return $this->adoptExisting($delivery, $order);
+            }
+
+            if ($e->isAccountProblem()) {
+                // Nothing about this order is wrong, so the reason is recorded
+                // as what it is: the Dzpatch partner account needs attention
+                // before any order can dispatch.
+                Log::error('Dzpatch partner account cannot accept deliveries', [
+                    'order_id' => $order->id,
+                    'code' => $e->errorCode,
+                    'message' => $e->getMessage(),
+                ]);
             }
 
             $this->markFailed($delivery, $e->getMessage());
@@ -192,7 +204,8 @@ class DeliveryDispatchService
     {
         try {
             $response = $this->client->getDeliveryByExternalOrderId(
-                $delivery->external_order_id
+                $delivery->external_order_id,
+                $delivery->dispatch_attempt ?? 1,
             );
 
             return $this->applyResponse($delivery, $response);

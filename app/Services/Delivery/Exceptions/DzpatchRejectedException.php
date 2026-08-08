@@ -34,8 +34,28 @@ class DzpatchRejectedException extends RuntimeException
     public function isDuplicate(): bool
     {
         return in_array($this->errorCode, [
-            'delivery_already_exists',
+            // v1 returns idempotency_conflict; delivery_already_exists is the
+            // legacy surface's name for the same condition.
             'idempotency_conflict',
+            'delivery_already_exists',
+        ], true);
+    }
+
+    /**
+     * Whether the refusal is about the partner account rather than this order.
+     *
+     * v1 returns `partner_pricing_rejected` when the fee is below the agreed
+     * floor or outside the service area, and `service_unavailable` when the
+     * partner account is not configured to dispatch (no billing profile, or an
+     * empty partner wallet). Neither is fixed by editing the order, so these
+     * need an operator rather than a retry — and saying so beats a generic
+     * "Dzpatch rejected the request" in the log.
+     */
+    public function isAccountProblem(): bool
+    {
+        return in_array($this->errorCode, [
+            'partner_pricing_rejected',
+            'service_unavailable',
         ], true);
     }
 }

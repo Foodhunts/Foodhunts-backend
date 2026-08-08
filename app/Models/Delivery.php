@@ -23,6 +23,7 @@ class Delivery extends Model
         'rider_lng' => 'decimal:7',
         'last_event_sequence' => 'integer',
         'dispatch_attempts' => 'integer',
+        'dispatch_attempt' => 'integer',
         'request_payload' => 'array',
         'response_payload' => 'array',
         'metadata' => 'array',
