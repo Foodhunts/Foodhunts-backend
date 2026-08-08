@@ -151,7 +151,7 @@ class DzpatchEndToEndTest extends TestCase
         );
     }
 
-    public function test_a_duplicate_external_order_id_is_refused(): void
+    public function test_an_identical_request_returns_the_original_delivery(): void
     {
         $client = app(DzpatchClient::class);
         $externalOrderId = 'e2e-test-'.Str::uuid();
@@ -160,11 +160,40 @@ class DzpatchEndToEndTest extends TestCase
         $first = $client->createDelivery($payload, (string) Str::uuid());
         $this->createdDeliveryId = $first['delivery_id'];
 
-        // Same order, different key. Dzpatch should recognise the order rather
-        // than dispatch it twice.
+        // Same order, different idempotency key. Dzpatch fingerprints the
+        // request rather than relying on the key alone, so an identical payload
+        // resolves to the delivery that already exists.
+        //
+        // This is what protects an order when a dispatch is retried by a path
+        // that has lost the original key - a queue redelivery, or a manual
+        // retry after a timeout. Neither can produce a second rider.
+        $second = $client->createDelivery($payload, (string) Str::uuid());
+
+        $this->assertSame(
+            $first['delivery_id'],
+            $second['delivery_id'],
+            'An identical request created a second delivery.',
+        );
+    }
+
+    public function test_a_changed_request_for_the_same_order_is_refused(): void
+    {
+        $client = app(DzpatchClient::class);
+        $externalOrderId = 'e2e-test-'.Str::uuid();
+
+        $first = $client->createDelivery($this->payload($externalOrderId), (string) Str::uuid());
+        $this->createdDeliveryId = $first['delivery_id'];
+
+        // Same order id, different content. Silently returning the original
+        // would hide the fact that the second request asked for something else,
+        // so Dzpatch refuses instead.
+        $changed = $this->payload($externalOrderId);
+        $changed['dropoff']['address'] = 'Somewhere completely different, Uyo';
+        $changed['pricing']['partner_calculated_fee'] = 2500;
+
         try {
-            $client->createDelivery($payload, (string) Str::uuid());
-            $this->fail('Expected Dzpatch to refuse a duplicate external_order_id.');
+            $client->createDelivery($changed, (string) Str::uuid());
+            $this->fail('Expected Dzpatch to refuse a conflicting request for the same order.');
         } catch (DzpatchRejectedException $e) {
             $this->assertTrue(
                 $e->isDuplicate(),
