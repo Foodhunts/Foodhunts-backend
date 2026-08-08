@@ -78,17 +78,22 @@ class DzpatchEndToEndTest extends TestCase
             'pickup' => [
                 'name' => 'E2E Test Restaurant',
                 'phone' => '+2348034968730',
-                'address' => '1 Test Pickup Street, Uyo, Akwa Ibom',
-                'lat' => 5.0377,
-                'lng' => 7.9128,
+                // Lagos, not Uyo. Dzpatch staging serves one area (Lagos,
+                // centre 6.5244/3.3792) and caps a delivery at 8km
+                // pickup-to-dropoff; anything else is refused with
+                // partner_pricing_rejected before the test can assert anything.
+                'address' => '1 Test Pickup Street, Lagos',
+                'lat' => 6.5244,
+                'lng' => 3.3792,
                 'instructions' => 'Automated test - please ignore.',
             ],
             'dropoff' => [
                 'name' => 'E2E Test Customer',
                 'phone' => '+2348034968730',
-                'address' => '2 Test Dropoff Road, Uyo, Akwa Ibom',
-                'lat' => 5.0450,
-                'lng' => 7.9200,
+                // ~700m from pickup, well inside the 8km cap.
+                'address' => '2 Test Dropoff Road, Lagos',
+                'lat' => 6.5300,
+                'lng' => 3.3800,
                 'instructions' => 'Automated test - please ignore.',
             ],
             'items' => [
@@ -163,23 +168,51 @@ class DzpatchEndToEndTest extends TestCase
         $externalOrderId = 'e2e-test-'.Str::uuid();
         $payload = $this->payload($externalOrderId);
 
-        $first = $client->createDelivery($payload, (string) Str::uuid());
+        $idempotencyKey = (string) Str::uuid();
+
+        $first = $client->createDelivery($payload, $idempotencyKey);
         $this->createdDeliveryId = $first['delivery_id'];
 
-        // Same order, different idempotency key. Dzpatch fingerprints the
-        // request rather than relying on the key alone, so an identical payload
-        // resolves to the delivery that already exists.
+        // Reusing the same key with the same payload returns the original
+        // delivery instead of creating a second one. This is what protects an
+        // order when a dispatch is retried after a timeout: the caller cannot
+        // put two riders on one order.
         //
-        // This is what protects an order when a dispatch is retried by a path
-        // that has lost the original key - a queue redelivery, or a manual
-        // retry after a timeout. Neither can produce a second rider.
-        $second = $client->createDelivery($payload, (string) Str::uuid());
+        // v1 requires the key AND the request fingerprint to match. A retry
+        // that has lost the original key is a conflict, not a replay - which is
+        // why DeliveryDispatchService persists the key on the local row before
+        // it calls out, and reuses it on every retry.
+        $second = $client->createDelivery($payload, $idempotencyKey);
 
         $this->assertSame(
             $first['delivery_id'],
             $second['delivery_id'],
             'An identical request created a second delivery.',
         );
+    }
+
+    public function test_a_lost_idempotency_key_is_a_conflict_not_a_second_delivery(): void
+    {
+        $client = app(DzpatchClient::class);
+        $externalOrderId = 'e2e-test-'.Str::uuid();
+        $payload = $this->payload($externalOrderId);
+
+        $first = $client->createDelivery($payload, (string) Str::uuid());
+        $this->createdDeliveryId = $first['delivery_id'];
+
+        // Same order and attempt, different key. v1 refuses rather than
+        // silently returning the original, so a caller that lost its key learns
+        // it must look the delivery up instead of dispatching again. The
+        // important guarantee is the same either way: no second rider.
+        try {
+            $client->createDelivery($payload, (string) Str::uuid());
+            $this->fail('Expected a conflict for a reused order with a new idempotency key.');
+        } catch (DzpatchRejectedException $e) {
+            $this->assertTrue(
+                $e->isDuplicate(),
+                "Expected a duplicate/conflict code, got: {$e->errorCode}",
+            );
+        }
     }
 
     public function test_a_changed_request_for_the_same_order_is_refused(): void
@@ -194,7 +227,7 @@ class DzpatchEndToEndTest extends TestCase
         // would hide the fact that the second request asked for something else,
         // so Dzpatch refuses instead.
         $changed = $this->payload($externalOrderId);
-        $changed['dropoff']['address'] = 'Somewhere completely different, Uyo';
+        $changed['dropoff']['address'] = 'Somewhere completely different, Lagos';
         $changed['pricing']['partner_calculated_fee_minor'] = 250000;
 
         try {
