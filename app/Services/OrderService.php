@@ -10,9 +10,12 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Services\Delivery\DeliveryDispatchService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class OrderService
 {
@@ -179,9 +182,35 @@ class OrderService
             $this->referralRewardService->reverseRewardForOrder($order);
         }
 
+        if ($status === OrderStatus::Ready) {
+            $this->dispatchDelivery($order);
+        }
+
         $this->pushNotificationService->notifyOrderStatusChanged($order);
 
         return $order->refresh();
+    }
+
+    /**
+     * Ask Dzpatch for a rider now the food is ready.
+     *
+     * Failures are swallowed on purpose. The restaurant has already marked the
+     * order ready, and that fact is true whether or not a rider was found;
+     * letting a dispatch error propagate would roll the transition back and
+     * leave the kitchen unable to progress an order that is sitting on the
+     * counter. The delivery row records why it failed, so a failed dispatch is
+     * visible and retryable rather than lost.
+     */
+    private function dispatchDelivery(Order $order): void
+    {
+        try {
+            app(DeliveryDispatchService::class)->dispatch($order);
+        } catch (Throwable $e) {
+            Log::warning('Could not dispatch a delivery for a ready order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function resolveRestaurantIdForOwner(User $user): string

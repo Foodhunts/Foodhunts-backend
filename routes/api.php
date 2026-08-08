@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Admin\AdminRestaurantController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWalletController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Delivery\DeliveryTrackingController;
+use App\Http\Controllers\Api\Delivery\DzpatchWebhookController;
 use App\Http\Controllers\Api\Customer\AddressController;
 use App\Http\Controllers\Api\Customer\BuyForMeController as CustomerBuyForMeController;
 use App\Http\Controllers\Api\Customer\OrderController;
@@ -125,7 +127,12 @@ Route::prefix('v2')->group(function (): void {
         ->middleware('throttle:20,1');
     Route::post('/webhooks/paystack', [PaymentController::class, 'webhook']);
 
+    // Unauthenticated because Dzpatch calls it directly; the HMAC signature on
+    // the request is what authorises it.
+    Route::post('/webhooks/dzpatch', DzpatchWebhookController::class);
+
     Route::middleware('supabase.auth')->group(function (): void {
+        Route::get('/orders/{order}/delivery', DeliveryTrackingController::class);
         Route::apiResource('addresses', AddressController::class)
             ->except(['show'])
             ->names([
