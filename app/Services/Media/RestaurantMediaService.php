@@ -37,7 +37,7 @@ class RestaurantMediaService
             MediaCategory::RestaurantCover,
             MediaObjectContext::restaurant((string) $restaurant->getKey()),
             $file,
-            'cover_image_url',
+            'header_image_url',
         );
     }
 

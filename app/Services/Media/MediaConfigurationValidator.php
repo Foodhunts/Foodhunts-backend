@@ -35,6 +35,7 @@ final class MediaConfigurationValidator
             'secret' => $disk['secret'] ?? null,
             'bucket' => $disk['bucket'] ?? null,
             'endpoint' => $disk['endpoint'] ?? null,
+            'region' => $disk['region'] ?? null,
         ] as $name => $value) {
             if (! is_string($value) || trim($value) === '') {
                 $missing[] = $name;

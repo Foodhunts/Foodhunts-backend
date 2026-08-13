@@ -262,6 +262,7 @@ final class MediaFoundationTest extends TestCase
                 'secret' => 'secret-value',
                 'bucket' => 'foodhunts-test',
                 'endpoint' => 'https://r2.example.test',
+                'region' => 'auto',
             ],
         ]);
     }

@@ -10,7 +10,7 @@ class Menu extends Model
 {
     use HasFactory, HasUuids;
 
-    protected $fillable = ['restaurant_id', 'name', 'is_active'];
+    protected $fillable = ['restaurant_id', 'name', 'is_active', 'menu_image_url'];
 
     protected $casts = ['is_active' => 'bool'];
 

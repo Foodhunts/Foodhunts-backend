@@ -98,6 +98,18 @@ final class MediaStorageService
         }
     }
 
+    public function mimeType(string $objectKey): string
+    {
+        $this->configuration->requireR2(false);
+        $this->keyGenerator->assertAllowed($objectKey);
+
+        try {
+            return (string) Storage::disk('r2')->mimeType($objectKey);
+        } catch (Throwable $exception) {
+            throw new MediaStorageException('R2 media MIME type check failed.', 0, $exception);
+        }
+    }
+
     public function delete(string $objectKey): bool
     {
         $this->configuration->requireR2(false);

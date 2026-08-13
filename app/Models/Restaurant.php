@@ -17,7 +17,7 @@ class Restaurant extends Model
         'description',
         'phone_number',
         'logo_url',
-        'cover_image_url',
+        'header_image_url',
         'is_active',
         'kyc_status',
         'payout_account_name',
