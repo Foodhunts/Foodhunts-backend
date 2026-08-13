@@ -21,3 +21,6 @@ yarn-error.log
 /.idea
 /.nova
 /.vscode
+
+# Test artifacts (Storage::fake writes)
+storage/framework/testing/
