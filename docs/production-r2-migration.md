@@ -61,3 +61,15 @@ If a URL was changed after migration, the rollback reports a conflict and leaves
 - Confirm existing Supabase URLs for records outside the migration scope still render.
 - Confirm no Supabase object was deleted.
 - Keep the manifest and database backup until the migration is accepted.
+
+## Execution log — 2026-08-13 (production)
+
+- Dry run: 1370 candidates (restaurants 121, menus 223, menu_items 984, app_ads 10).
+- Ran `media:migrate-to-r2 --limit=250/500/750/1000/1370 --batch-size=25 --confirm` sequentially (idempotent; completed entries skipped on later runs). ~3-4 min per 250.
+- Result: **1333 completed / 37 failed**; R2 bucket now holds 1333 objects (1318 under `restaurants/`, 10 under `promotions/` for ads); sampled URLs return 200 with correct content types; Laravel `/api/v2/restaurants` returns R2 URLs.
+- Failure analysis: 32 Cloudinary URLs (pre-Supabase provider, still functional — left untouched), 5 Supabase edge cases left in place:
+  - 1 SVG logo (test account), 2 HEIC files, 1 oversized (>5MB public limit), 1 source already deleted (HTTP 400 — dead link).
+- Rescue pass: 5 mislabeled files (jpeg bytes with .png/.webp names) migrated via direct storage path (bypasses strict downloader, same verified upload).
+- Rollback available via `media:rollback-r2-migration --confirm` (restores Supabase URLs from manifest).
+- NOT migrated (by design): KYC/owner identity docs (43), historical JSON snapshots (orders/transactions/buy-for-me metadata), Supabase objects themselves (nothing deleted).
+- Follow-ups: switch store upload drivers to `laravel` (MEDIA_UPLOAD_DRIVER / EXPO_PUBLIC_MEDIA_UPLOAD_DRIVER) in production; migrate admin ads uploads to a Laravel endpoint; consider Supabase object deletion + quota relief after soak.
