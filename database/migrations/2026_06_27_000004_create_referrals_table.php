@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -14,9 +15,13 @@ return new class extends Migration {
             $table->string('referral_code_used');
             $table->string('status')->default('active');
             $table->timestamps();
-
-            $table->check('referrer_user_id <> referred_user_id');
         });
+
+        // Blueprint::check() is not available in the installed framework;
+        // use raw SQL so fresh databases migrate reproducibly (roadmap Phase 0.4).
+        DB::statement(
+            'ALTER TABLE referrals ADD CONSTRAINT referrals_referrer_diff_referred CHECK (referrer_user_id <> referred_user_id)'
+        );
     }
 
     public function down(): void

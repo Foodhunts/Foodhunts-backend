@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\AdminOrderController;
 use App\Http\Controllers\Api\Admin\AdminPaymentAttemptController;
 use App\Http\Controllers\Api\Admin\AdminReferralController;
 use App\Http\Controllers\Api\Admin\AdminRestaurantController;
+use App\Http\Controllers\Api\Admin\AdminRiderController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminWalletController;
 use App\Http\Controllers\Api\AuthController;
@@ -20,6 +21,8 @@ use App\Http\Controllers\Api\PublicApi\BuyForMeController as PublicBuyForMeContr
 use App\Http\Controllers\Api\PublicRestaurantController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\Restaurant\RestaurantOrderController;
+use App\Http\Controllers\Api\Rider\DeliveryController;
+use App\Http\Controllers\Api\Rider\RiderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class);
@@ -159,6 +162,21 @@ Route::prefix('v2')->group(function (): void {
             Route::post('/orders/{order}/accept', [RestaurantOrderController::class, 'accept']);
             Route::post('/orders/{order}/preparing', [RestaurantOrderController::class, 'markPreparing']);
             Route::post('/orders/{order}/ready', [RestaurantOrderController::class, 'markReady']);
+            Route::post('/orders/{order}/assign-rider', [RestaurantOrderController::class, 'assignRider']);
+        });
+
+        Route::prefix('riders')->group(function (): void {
+            Route::post('/apply', [RiderController::class, 'apply']);
+            Route::get('/me', [RiderController::class, 'me']);
+            Route::patch('/me', [RiderController::class, 'update']);
+            Route::post('/me/online', [RiderController::class, 'setOnline']);
+            Route::post('/me/location', [RiderController::class, 'location']);
+            Route::post('/documents', [RiderController::class, 'uploadDocument']);
+        });
+
+        Route::prefix('deliveries')->group(function (): void {
+            Route::get('/{delivery}', [DeliveryController::class, 'show']);
+            Route::post('/{delivery}/{action}', [DeliveryController::class, 'transition']);
         });
 
         Route::prefix('restaurants/{restaurant}')
@@ -174,6 +192,9 @@ Route::prefix('v2')->group(function (): void {
             Route::get('/restaurants', [AdminRestaurantController::class, 'index']);
             Route::get('/orders', [AdminOrderController::class, 'index']);
             Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
+            Route::get('/riders', [AdminRiderController::class, 'index']);
+            Route::get('/riders/{rider}', [AdminRiderController::class, 'show']);
+            Route::post('/riders/{rider}/approve', [AdminRiderController::class, 'approve']);
             Route::post('/wallets/{user}/credit', [AdminWalletController::class, 'credit']);
             Route::post('/wallets/{user}/reverse', [AdminWalletController::class, 'debit']);
             Route::get('/payment-attempts', [AdminPaymentAttemptController::class, 'index']);

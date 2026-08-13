@@ -24,6 +24,8 @@ class Order extends Model
         'tax_amount',
         'discount_amount',
         'total_amount',
+        'estimated_delivery_time',
+        'actual_delivery_time',
         'currency',
         'payment_reference',
         'payment_provider',
@@ -43,6 +45,8 @@ class Order extends Model
         'total_amount' => 'decimal:2',
         'order_snapshot' => 'array',
         'metadata' => 'array',
+        'estimated_delivery_time' => 'datetime',
+        'actual_delivery_time' => 'datetime',
     ];
 
     public function items()
@@ -68,5 +72,10 @@ class Order extends Model
     public function paymentAttempt()
     {
         return $this->belongsTo(PaymentAttempt::class, 'payment_attempt_id');
+    }
+
+    public function delivery()
+    {
+        return $this->hasOne(OrderDelivery::class);
     }
 }
