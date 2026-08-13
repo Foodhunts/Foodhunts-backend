@@ -14,6 +14,7 @@ use App\Services\Media\Data\MediaObjectContext;
 use App\Services\Media\Exceptions\MediaMigrationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -113,22 +114,25 @@ final class PublicMediaMigrationService
         }
 
         if ($entity === null || $entity === 'app_ad') {
-            $adQuery = AppAd::query()
-                ->whereNotNull('image_url')
-                ->where('image_url', '!=', '')
-                ->when($id !== null, fn ($query) => $query->whereKey($id))
-                ->orderBy('id');
+            // app_ads is Supabase-owned DDL; pure-Laravel environments may not have it.
+            if (Schema::hasTable('app_ads')) {
+                $adQuery = AppAd::query()
+                    ->whereNotNull('image_url')
+                    ->where('image_url', '!=', '')
+                    ->when($id !== null, fn ($query) => $query->whereKey($id))
+                    ->orderBy('id');
 
-            foreach ($adQuery->get() as $ad) {
-                if ($this->isAbsoluteHttpUrl($ad->image_url)) {
-                    $candidates[] = $this->candidate(
-                        $ad,
-                        'app_ad',
-                        'image_url',
-                        $ad->image_url,
-                        MediaCategory::PromotionImage,
-                        MediaObjectContext::promotion((string) $ad->getKey()),
-                    );
+                foreach ($adQuery->get() as $ad) {
+                    if ($this->isAbsoluteHttpUrl($ad->image_url)) {
+                        $candidates[] = $this->candidate(
+                            $ad,
+                            'app_ad',
+                            'image_url',
+                            $ad->image_url,
+                            MediaCategory::PromotionImage,
+                            MediaObjectContext::promotion((string) $ad->getKey()),
+                        );
+                    }
                 }
             }
         }
