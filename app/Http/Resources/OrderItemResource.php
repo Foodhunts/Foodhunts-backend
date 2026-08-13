@@ -15,9 +15,9 @@ class OrderItemResource extends JsonResource
             'menu_item_id' => $this->menu_item_id,
             'name' => $this->name,
             'description' => $this->description,
-            'unit_price' => $this->unit_price,
+            'unit_price' => (float) $this->unit_price,
             'quantity' => $this->quantity,
-            'total_price' => $this->total_price,
+            'total_price' => (float) $this->total_price,
         ];
     }
 }

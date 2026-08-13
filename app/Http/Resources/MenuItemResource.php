@@ -15,12 +15,17 @@ class MenuItemResource extends JsonResource
             'restaurant_id' => $this->restaurant_id,
             'name' => $this->name,
             'description' => $this->description,
-            'price' => $this->price,
+            'price' => (float) $this->price,
             'is_available' => $this->is_available,
             'image_url' => $this->image_url,
             'menu_name' => $this->whenLoaded('menu', fn () => $this->menu->name),
             'requires_takeaway' => $this->whenLoaded('menu', fn () => (bool) $this->menu->requires_takeaway),
-            'takeaway_price' => $this->whenLoaded('menu', fn () => $this->menu->takeaway_price),
+            'takeaway_price' => $this->whenLoaded(
+                'menu',
+                fn () => $this->menu->takeaway_price === null
+                    ? null
+                    : (float) $this->menu->takeaway_price,
+            ),
         ];
     }
 }
