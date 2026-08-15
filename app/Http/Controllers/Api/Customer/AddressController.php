@@ -9,6 +9,7 @@ use App\Http\Resources\AddressResource;
 use App\Models\Address;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
@@ -43,9 +44,25 @@ class AddressController extends Controller
     {
         abort_unless($address->user_id === $request->user()->id, 403);
 
+        // An address referenced by an order or a buy-for-me request cannot be
+        // hard-deleted: buy_for_me_requests.delivery_address_id is ON DELETE
+        // RESTRICT (would throw a FK violation), and orders.delivery_address_id
+        // is ON DELETE CASCADE (would silently delete the order). Block the
+        // delete and tell the user why instead of surfacing a 500.
+        $inUse = DB::table('orders')->where('delivery_address_id', $address->id)->exists()
+            || DB::table('buy_for_me_requests')->where('delivery_address_id', $address->id)->exists();
+
+        if ($inUse) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This address is linked to a past order and cannot be deleted.',
+                'code' => 'ADDRESS_IN_USE',
+            ], 409);
+        }
+
         $address->delete();
 
-        return response()->json(['message' => 'Address deleted']);
+        return response()->json(['success' => true, 'message' => 'Address deleted']);
     }
 
     public function setDefault(Request $request): JsonResponse

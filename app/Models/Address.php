@@ -35,6 +35,7 @@ class Address extends Model
         'is_default' => 'bool',
         'latitude' => 'float',
         'longitude' => 'float',
+        'created_at' => 'datetime',
     ];
 
     public function user()
