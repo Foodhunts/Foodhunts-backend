@@ -173,15 +173,17 @@ class OrderService
 
     public function transition(Order $order, OrderStatus $status): Order
     {
-        $order->update(['status' => $status->value]);
+        return DB::transaction(function () use ($order, $status): Order {
+            $order->update(['status' => $status->value]);
 
-        if ($status === OrderStatus::Cancelled) {
-            $this->referralRewardService->reverseRewardForOrder($order);
-        }
+            if ($status === OrderStatus::Cancelled) {
+                $this->referralRewardService->reverseRewardForOrder($order);
+            }
 
-        $this->pushNotificationService->notifyOrderStatusChanged($order);
+            $this->pushNotificationService->notifyOrderStatusChanged($order);
 
-        return $order->refresh();
+            return $order->refresh();
+        });
     }
 
     public function resolveRestaurantIdForOwner(User $user): string

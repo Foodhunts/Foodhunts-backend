@@ -5,6 +5,7 @@ use App\Services\Media\Exceptions\MediaConfigurationException;
 use App\Services\Media\MediaConfigurationValidator;
 use App\Services\ReferralCodeService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -81,3 +82,11 @@ Artisan::command('foodhunts:backfill-referral-codes', function (): void {
 
     $this->info("Backfilled referral codes for {$updated} users.");
 })->purpose('Backfill missing referral codes for existing users');
+
+// Transactional push outbox drain. Runs every minute; each pass claims a
+// bounded batch of pending rows (single-winner) and sends via Expo. Safe to
+// run concurrently; `withoutOverlapping` prevents a second pass stacking up
+// behind a slow one.
+Schedule::command('push:send-pending --limit=200')
+    ->everyMinute()
+    ->withoutOverlapping();

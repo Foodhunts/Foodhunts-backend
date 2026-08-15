@@ -14,8 +14,10 @@ class StorePushTokenRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'token' => ['required', 'string', 'max:255'],
+            'device_id' => ['required', 'string', 'max:255'],
+            'expo_push_token' => ['required', 'string', 'max:255'],
             'platform' => ['required', 'in:ios,android,web'],
+            'app_version' => ['nullable', 'string', 'max:50'],
         ];
     }
 }
