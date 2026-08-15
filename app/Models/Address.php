@@ -10,14 +10,22 @@ class Address extends Model
 {
     use HasFactory, HasUuids;
 
+    /**
+     * The production table is the shared Supabase `addresses` table, whose
+     * schema uses `name` (not `label`), has no `country` column, and has a
+     * `created_at` (default now()) but no `updated_at`. Keep this model
+     * aligned to that schema so inserts/updates don't fail on columns that
+     * don't exist.
+     */
+    public $timestamps = false;
+
     protected $fillable = [
         'user_id',
-        'label',
+        'name',
         'street_address',
         'city',
         'state',
         'postal_code',
-        'country',
         'latitude',
         'longitude',
         'is_default',
@@ -25,8 +33,8 @@ class Address extends Model
 
     protected $casts = [
         'is_default' => 'bool',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
+        'latitude' => 'float',
+        'longitude' => 'float',
     ];
 
     public function user()
