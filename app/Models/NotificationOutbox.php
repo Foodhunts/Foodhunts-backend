@@ -18,6 +18,8 @@ class NotificationOutbox extends Model
 
     public const MAX_ATTEMPTS = 5;
 
+    protected $table = 'notification_outbox';
+
     protected $fillable = [
         'user_id',
         'event',
