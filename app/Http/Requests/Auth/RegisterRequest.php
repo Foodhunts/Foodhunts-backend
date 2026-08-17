@@ -18,7 +18,7 @@ class RegisterRequest extends FormRequest
             'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:30', 'unique:users,phone'],
+            'phone' => ['required', 'string', 'max:30', 'unique:users,phone_number'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['nullable', 'in:customer,restaurant_owner,courier'],
             'referral_code' => ['nullable', 'string', 'max:32'],
