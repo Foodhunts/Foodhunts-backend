@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PublicApi\BuyForMeController as PublicBuyForMeController;
 use App\Http\Controllers\Api\PublicRestaurantController;
 use App\Http\Controllers\Api\PushTokenController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Restaurant\RestaurantOrderController;
 use App\Http\Controllers\Api\Rider\DeliveryController;
 use App\Http\Controllers\Api\Rider\RiderController;
@@ -106,6 +107,7 @@ Route::prefix('v2')->group(function (): void {
     Route::get('/restaurants/{restaurant}/menu', [PublicRestaurantController::class, 'menuItems']);
     Route::get('/menu-items/{menuItem}', [PublicRestaurantController::class, 'menuItem']);
     Route::get('/ads/active', [PublicRestaurantController::class, 'activeAds']);
+    Route::get('/reviews/summary', [ReviewController::class, 'summary']);
 
     Route::prefix('auth')->group(function (): void {
         Route::middleware('throttle:20,1')->group(function (): void {
@@ -149,6 +151,8 @@ Route::prefix('v2')->group(function (): void {
         Route::get('/buy-for-me/{token}/status', [CustomerBuyForMeController::class, 'status']);
         Route::post('/push-tokens', [PushTokenController::class, 'store']);
         Route::delete('/push-tokens/{pushToken}', [PushTokenController::class, 'destroy']);
+        Route::get('/reviews/me', [ReviewController::class, 'me']);
+        Route::post('/reviews', [ReviewController::class, 'store']);
 
         Route::prefix('payments')->group(function (): void {
             Route::post('/paystack/initialize', [PaymentController::class, 'initialize'])

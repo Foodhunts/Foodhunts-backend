@@ -94,4 +94,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(PushToken::class);
     }
+
+    public function platformReview()
+    {
+        return $this->hasOne(PlatformReview::class);
+    }
 }
