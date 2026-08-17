@@ -221,7 +221,7 @@ class PaymentService
     public function createPaystackAuthorizationUrl(Order $order, User $user): array
     {
         return $this->paystackService->initializePayment([
-            'email' => $user->email ?? $user->phone.'@foodhunts.local',
+            'email' => $user->email ?? $user->phone_number.'@foodhunts.local',
             'amount' => (int) round($order->total_amount * 100),
             'reference' => (string) Str::uuid(),
             'metadata' => [

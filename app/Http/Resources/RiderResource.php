@@ -13,7 +13,7 @@ class RiderResource extends JsonResource
             'id' => $this->id,
             'user_id' => $this->user_id,
             'name' => $this->user?->name,
-            'phone' => $this->user?->phone,
+            'phone' => $this->user?->phone_number,
             'email' => $this->user?->email,
             'vehicle_type' => $this->vehicle_type,
             'plate_number' => $this->plate_number,

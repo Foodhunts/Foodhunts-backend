@@ -141,7 +141,7 @@ class ReferralService
                 'id' => $referredUserId,
                 'name' => $displayName,
                 'email' => $this->maskEmail($referredUser?->email),
-                'phone' => $this->maskPhone($referredUser?->phone),
+                'phone' => $this->maskPhone($referredUser?->phone_number),
                 'joined_at' => $referredUser?->created_at,
                 'total_orders' => (int) ($orderStat->total_orders ?? 0),
                 'total_rewards_earned_from_user' => (float) ($rewardTotal->total_reward_amount ?? 0),

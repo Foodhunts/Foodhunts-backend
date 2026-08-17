@@ -11,14 +11,14 @@ class AdminReferralController extends Controller
     public function index()
     {
         return response()->json(
-            Referral::query()->with(['referrer:id,first_name,last_name,email,phone,referral_code', 'referred:id,first_name,last_name,email,phone,referral_code'])->latest()->paginate(20)
+            Referral::query()->with(['referrer:id,first_name,last_name,email,phone_number,referral_code', 'referred:id,first_name,last_name,email,phone_number,referral_code'])->latest()->paginate(20)
         );
     }
 
     public function rewards()
     {
         return response()->json(
-            ReferralReward::query()->with(['referrer:id,first_name,last_name,email,phone,referral_code', 'referred:id,first_name,last_name,email,phone,referral_code', 'order:id,total_amount,payment_status'])->latest()->paginate(20)
+            ReferralReward::query()->with(['referrer:id,first_name,last_name,email,phone_number,referral_code', 'referred:id,first_name,last_name,email,phone_number,referral_code', 'order:id,total_amount,payment_status'])->latest()->paginate(20)
         );
     }
 }

@@ -40,8 +40,8 @@ class AuthController extends Controller
 
     public function profile(Request $request): JsonResponse
     {
-        $request->validate(['name' => ['sometimes', 'string', 'max:255'], 'first_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'last_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'phone' => ['sometimes', 'string', 'max:30', 'unique:users,phone,'.$request->user()->id]]);
-        $request->user()->update($request->only(['name', 'first_name', 'last_name', 'phone']));
+        $request->validate(['name' => ['sometimes', 'string', 'max:255'], 'first_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'last_name' => ['sometimes', 'nullable', 'string', 'max:255'], 'phone_number' => ['sometimes', 'nullable', 'string', 'max:30', 'unique:users,phone_number,'.$request->user()->id]]);
+        $request->user()->update($request->only(['name', 'first_name', 'last_name', 'phone_number']));
         return response()->json(['success' => true, 'message' => 'Profile updated successfully', 'data' => ['user' => new UserResource($request->user()->refresh())]]);
     }
 

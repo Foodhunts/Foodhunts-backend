@@ -10,7 +10,7 @@ class AdminBuyForMeController extends Controller
     public function index()
     {
         return response()->json(
-            BuyForMeRequest::query()->with(['requester:id,first_name,last_name,email,phone,referral_code', 'restaurant', 'order'])->latest()->paginate(20)
+            BuyForMeRequest::query()->with(['requester:id,first_name,last_name,email,phone_number,referral_code', 'restaurant', 'order'])->latest()->paginate(20)
         );
     }
 
