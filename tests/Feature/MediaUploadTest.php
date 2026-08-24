@@ -35,6 +35,42 @@ final class MediaUploadTest extends TestCase
             ->assertUnauthorized();
     }
 
+    /**
+     * Regression: the media routes must be authenticated (supabase.auth) but must
+     * NOT sit behind the generic role:restaurant_owner middleware. The shared
+     * production users table has no `role` column, so that middleware 403s every
+     * uploader BEFORE MediaPolicy can decide ownership. This asserts the route
+     * middleware directly so the policy fix cannot be silently bypassed again.
+     */
+    public function test_media_routes_are_authenticated_but_not_role_gated(): void
+    {
+        $router = app('router');
+        $paths = [
+            'api/v2/restaurants/{restaurant}/media/logo',
+            'api/v2/restaurants/{restaurant}/media/cover',
+            'api/v2/restaurants/{restaurant}/menu-items/{menuItem}/media',
+        ];
+
+        foreach ($router->getRoutes() as $route) {
+            if (! in_array($route->uri(), $paths, true)) {
+                continue;
+            }
+            $middleware = $route->gatherMiddleware();
+            $this->assertContains(
+                'supabase.auth',
+                $middleware,
+                "Route {$route->uri()} must require Supabase authentication.",
+            );
+            foreach ($middleware as $m) {
+                $this->assertStringStartsNotWith(
+                    'role:',
+                    (string) $m,
+                    "Route {$route->uri()} must not be gated by the role middleware.",
+                );
+            }
+        }
+    }
+
     public function test_owner_policy_allows_only_the_matching_restaurant_owner(): void
     {
         $policy = app(MediaPolicy::class);
@@ -47,6 +83,45 @@ final class MediaUploadTest extends TestCase
 
         $this->assertTrue($policy->updateRestaurantMedia($owner, $restaurant));
         $this->assertFalse($policy->updateRestaurantMedia($unrelated, $restaurant));
+    }
+
+    public function test_owner_without_a_role_is_still_allowed_by_id(): void
+    {
+        // Production regression: the shared users table has no `role` column, so
+        // $user->role is null. Ownership must be decided by id, not role.
+        $policy = app(MediaPolicy::class);
+        $owner = new User;
+        $owner->id = '9ae9da06-06f5-425b-881e-4e14821184e9';
+        $restaurant = new Restaurant(['owner_id' => $owner->id]);
+        $restaurant->id = self::RESTAURANT_ID;
+
+        $this->assertNull($owner->role);
+        $this->assertTrue($policy->updateRestaurantMedia($owner, $restaurant));
+    }
+
+    public function test_email_linked_owner_is_allowed_even_without_owner_id_match(): void
+    {
+        // Email-linked stores (store app services/menus.ts) own by owner_email.
+        $policy = app(MediaPolicy::class);
+        $user = new User(['email' => 'Store@Example.com']);
+        $user->id = 'cae9da06-06f5-425b-881e-4e14821184ec';
+        $restaurant = new Restaurant(['owner_id' => 'dae9da06-06f5-425b-881e-4e14821184ed']); // different user
+        $restaurant->id = self::RESTAURANT_ID;
+        $restaurant->owner_email = 'store@example.com';
+
+        $this->assertTrue($policy->updateRestaurantMedia($user, $restaurant));
+    }
+
+    public function test_foreign_user_is_denied_when_no_ownership_signal_matches(): void
+    {
+        $policy = app(MediaPolicy::class);
+        $stranger = new User(['email' => 'stranger@example.com']);
+        $stranger->id = 'eae9da06-06f5-425b-881e-4e14821184ee';
+        $restaurant = new Restaurant(['owner_id' => 'fae9da06-06f5-425b-881e-4e14821184ef']);
+        $restaurant->id = self::RESTAURANT_ID;
+        $restaurant->owner_email = 'realowner@example.com';
+
+        $this->assertFalse($policy->updateRestaurantMedia($stranger, $restaurant));
     }
 
     public function test_cross_restaurant_menu_item_is_rejected_by_policy(): void
@@ -98,7 +173,8 @@ final class MediaUploadTest extends TestCase
             [],
             ['file' => UploadedFile::fake()->image('original.jpg')],
         );
-        $owner = new User(['role' => Role::RestaurantOwner->value, 'id' => '9ae9da06-06f5-425b-881e-4e14821184e9']);
+        $owner = new User(['role' => Role::RestaurantOwner->value]);
+        $owner->id = '9ae9da06-06f5-425b-881e-4e14821184e9';
         $request->setUserResolver(static function () use ($owner): User {
             return $owner;
         });
@@ -129,7 +205,8 @@ final class MediaUploadTest extends TestCase
             [],
             ['file' => UploadedFile::fake()->image('logo.jpg')],
         );
-        $owner = new User(['role' => Role::RestaurantOwner->value, 'id' => '9ae9da06-06f5-425b-881e-4e14821184e9']);
+        $owner = new User(['role' => Role::RestaurantOwner->value]);
+        $owner->id = '9ae9da06-06f5-425b-881e-4e14821184e9';
         $request->setUserResolver(static function () use ($owner): User {
             return $owner;
         });

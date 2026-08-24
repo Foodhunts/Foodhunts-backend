@@ -183,8 +183,13 @@ Route::prefix('v2')->group(function (): void {
             Route::post('/{delivery}/{action}', [DeliveryController::class, 'transition']);
         });
 
+        // Media ownership is decided by MediaPolicy (direct owner, email-linked
+        // owner, legacy id-owner). The generic role:restaurant_owner middleware
+        // is intentionally NOT applied here: the shared production users table
+        // has no `role` column, so that middleware would 403 every uploader
+        // before the policy runs. Auth is still enforced by the outer
+        // supabase.auth group.
         Route::prefix('restaurants/{restaurant}')
-            ->middleware('role:restaurant_owner')
             ->group(function (): void {
                 Route::post('/media/logo', [RestaurantMediaController::class, 'logo']);
                 Route::post('/media/cover', [RestaurantMediaController::class, 'cover']);
