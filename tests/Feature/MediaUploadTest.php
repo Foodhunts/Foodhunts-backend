@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Enums\Role;
+use App\Auth\SupabaseIdentity;
 use App\Http\Controllers\Api\Media\RestaurantMediaController;
 use App\Http\Requests\Media\UploadRestaurantLogoRequest;
 use App\Models\MenuItem;
@@ -36,11 +37,9 @@ final class MediaUploadTest extends TestCase
     }
 
     /**
-     * Regression: the media routes must be authenticated (supabase.auth) but must
-     * NOT sit behind the generic role:restaurant_owner middleware. The shared
-     * production users table has no `role` column, so that middleware 403s every
-     * uploader BEFORE MediaPolicy can decide ownership. This asserts the route
-     * middleware directly so the policy fix cannot be silently bypassed again.
+     * Regression: media routes must verify the Supabase identity directly. Most
+     * restaurant owner IDs are valid Supabase accounts without duplicate Laravel
+     * public.users rows, so the normal profile-requiring middleware would 403.
      */
     public function test_media_routes_are_authenticated_but_not_role_gated(): void
     {
@@ -57,9 +56,9 @@ final class MediaUploadTest extends TestCase
             }
             $middleware = $route->gatherMiddleware();
             $this->assertContains(
-                'supabase.auth',
+                'supabase.identity',
                 $middleware,
-                "Route {$route->uri()} must require Supabase authentication.",
+                "Route {$route->uri()} must verify a Supabase identity.",
             );
             foreach ($middleware as $m) {
                 $this->assertStringStartsNotWith(
@@ -110,6 +109,19 @@ final class MediaUploadTest extends TestCase
         $restaurant->owner_email = 'store@example.com';
 
         $this->assertTrue($policy->updateRestaurantMedia($user, $restaurant));
+    }
+
+    public function test_supabase_identity_owner_is_allowed_without_a_laravel_profile(): void
+    {
+        $policy = app(MediaPolicy::class);
+        $identity = new SupabaseIdentity(
+            'cae9da06-06f5-425b-881e-4e14821184ec',
+            'store@example.com',
+        );
+        $restaurant = new Restaurant(['owner_id' => $identity->id]);
+        $restaurant->id = self::RESTAURANT_ID;
+
+        $this->assertTrue($policy->updateRestaurantMedia($identity, $restaurant));
     }
 
     public function test_foreign_user_is_denied_when_no_ownership_signal_matches(): void
@@ -173,12 +185,9 @@ final class MediaUploadTest extends TestCase
             [],
             ['file' => UploadedFile::fake()->image('original.jpg')],
         );
-        $owner = new User(['role' => Role::RestaurantOwner->value]);
-        $owner->id = '9ae9da06-06f5-425b-881e-4e14821184e9';
-        $request->setUserResolver(static function () use ($owner): User {
-            return $owner;
-        });
-        $restaurant = new Restaurant(['owner_id' => $owner->id]);
+        $identity = new SupabaseIdentity('9ae9da06-06f5-425b-881e-4e14821184e9', 'owner@example.com');
+        $request->attributes->set(SupabaseIdentity::REQUEST_ATTRIBUTE, $identity);
+        $restaurant = new Restaurant(['owner_id' => $identity->id]);
         $restaurant->id = self::RESTAURANT_ID;
 
         $response = $controller->logo($request, $restaurant);
@@ -205,12 +214,9 @@ final class MediaUploadTest extends TestCase
             [],
             ['file' => UploadedFile::fake()->image('logo.jpg')],
         );
-        $owner = new User(['role' => Role::RestaurantOwner->value]);
-        $owner->id = '9ae9da06-06f5-425b-881e-4e14821184e9';
-        $request->setUserResolver(static function () use ($owner): User {
-            return $owner;
-        });
-        $restaurant = new Restaurant(['owner_id' => $owner->id]);
+        $identity = new SupabaseIdentity('9ae9da06-06f5-425b-881e-4e14821184e9', 'owner@example.com');
+        $request->attributes->set(SupabaseIdentity::REQUEST_ATTRIBUTE, $identity);
+        $restaurant = new Restaurant(['owner_id' => $identity->id]);
         $restaurant->id = self::RESTAURANT_ID;
 
         $response = $controller->logo($request, $restaurant);

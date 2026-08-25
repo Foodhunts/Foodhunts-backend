@@ -151,6 +151,11 @@ class SupabaseAuthService
             throw new InvalidSupabaseTokenException();
         }
 
-        return ['id' => $id];
+        $email = is_array($payload) ? ($payload['email'] ?? null) : null;
+
+        return [
+            'id' => $id,
+            'email' => is_string($email) && $email !== '' ? $email : null,
+        ];
     }
 }

@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => App\Http\Middleware\EnsureAdminRole::class,
             'role' => App\Http\Middleware\EnsureRole::class,
             'supabase.auth' => App\Http\Middleware\AuthenticateWithSupabase::class,
+            'supabase.identity' => App\Http\Middleware\AuthenticateSupabaseIdentity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Media;
 
+use App\Auth\SupabaseIdentity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Media\UploadMenuItemImageRequest;
 use App\Http\Requests\Media\UploadRestaurantCoverRequest;
@@ -29,7 +30,7 @@ final class RestaurantMediaController extends Controller
     public function logo(UploadRestaurantLogoRequest $request, Restaurant|string $restaurant): JsonResponse
     {
         $restaurant = $this->resolveRestaurant($restaurant);
-        abort_unless($this->policy->updateRestaurantMedia($request->user(), $restaurant), 403);
+        abort_unless($this->policy->updateRestaurantMedia($this->identity($request), $restaurant), 403);
 
         return $this->storePublicMedia(
             fn (UploadedFile $file) => $this->media->updateLogo($restaurant, $file),
@@ -41,7 +42,7 @@ final class RestaurantMediaController extends Controller
     public function cover(UploadRestaurantCoverRequest $request, Restaurant|string $restaurant): JsonResponse
     {
         $restaurant = $this->resolveRestaurant($restaurant);
-        abort_unless($this->policy->updateRestaurantMedia($request->user(), $restaurant), 403);
+        abort_unless($this->policy->updateRestaurantMedia($this->identity($request), $restaurant), 403);
 
         return $this->storePublicMedia(
             fn (UploadedFile $file) => $this->media->updateCover($restaurant, $file),
@@ -62,7 +63,7 @@ final class RestaurantMediaController extends Controller
             ->firstOrFail();
 
         abort_unless(
-            $this->policy->updateMenuItemMedia($request->user(), $restaurant, $scopedMenuItem),
+            $this->policy->updateMenuItemMedia($this->identity($request), $restaurant, $scopedMenuItem),
             403,
         );
 
@@ -78,6 +79,14 @@ final class RestaurantMediaController extends Controller
         return $restaurant instanceof Restaurant
             ? $restaurant
             : Restaurant::query()->findOrFail($restaurant);
+    }
+
+    private function identity(UploadRestaurantLogoRequest|UploadRestaurantCoverRequest|UploadMenuItemImageRequest $request): SupabaseIdentity
+    {
+        $identity = $request->attributes->get(SupabaseIdentity::REQUEST_ATTRIBUTE);
+        abort_unless($identity instanceof SupabaseIdentity, 401);
+
+        return $identity;
     }
 
     private function resolveMenuItem(Restaurant $restaurant, MenuItem|string $menuItem): MenuItem

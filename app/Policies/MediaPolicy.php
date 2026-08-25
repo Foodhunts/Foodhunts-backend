@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\Role;
+use App\Auth\SupabaseIdentity;
 use App\Models\MenuItem;
 use App\Models\Restaurant;
 use App\Models\User;
 
 final class MediaPolicy
 {
-    public function updateRestaurantMedia(User $user, Restaurant $restaurant): bool
+    public function updateRestaurantMedia(User|SupabaseIdentity $user, Restaurant $restaurant): bool
     {
         return $this->isRestaurantOwner($user, $restaurant);
     }
 
-    public function updateMenuItemMedia(User $user, Restaurant $restaurant, MenuItem $menuItem): bool
+    public function updateMenuItemMedia(User|SupabaseIdentity $user, Restaurant $restaurant, MenuItem $menuItem): bool
     {
         return $this->isRestaurantOwner($user, $restaurant)
             && (string) $menuItem->restaurant_id === (string) $restaurant->getKey();
@@ -36,9 +36,11 @@ final class MediaPolicy
      * the user a restaurant owner, that also grants access, but its absence
      * never blocks a genuine owner.
      */
-    private function isRestaurantOwner(User $user, Restaurant $restaurant): bool
+    private function isRestaurantOwner(User|SupabaseIdentity $user, Restaurant $restaurant): bool
     {
-        $userId = (string) $user->getKey();
+        $userId = $user instanceof SupabaseIdentity
+            ? $user->id
+            : (string) $user->getKey();
         $userEmail = strtolower(trim((string) ($user->email ?? '')));
         $ownerId = $restaurant->owner_id === null ? null : (string) $restaurant->owner_id;
         $ownerEmail = strtolower(trim((string) ($restaurant->owner_email ?? '')));
@@ -47,14 +49,6 @@ final class MediaPolicy
         $ownsByLegacyId = $ownerId === null && (string) $restaurant->getKey() === $userId;
         $ownsByEmail = $userEmail !== '' && $ownerEmail !== '' && $ownerEmail === $userEmail;
 
-        if ($ownsById || $ownsByLegacyId || $ownsByEmail) {
-            return true;
-        }
-
-        // Optional widening: honour an explicit restaurant-owner role paired with
-        // an id match, for any future deployment that populates users.role.
-        $role = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
-
-        return $role === Role::RestaurantOwner->value && $ownsById;
+        return $ownsById || $ownsByLegacyId || $ownsByEmail;
     }
 }

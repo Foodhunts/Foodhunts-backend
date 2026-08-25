@@ -183,19 +183,6 @@ Route::prefix('v2')->group(function (): void {
             Route::post('/{delivery}/{action}', [DeliveryController::class, 'transition']);
         });
 
-        // Media ownership is decided by MediaPolicy (direct owner, email-linked
-        // owner, legacy id-owner). The generic role:restaurant_owner middleware
-        // is intentionally NOT applied here: the shared production users table
-        // has no `role` column, so that middleware would 403 every uploader
-        // before the policy runs. Auth is still enforced by the outer
-        // supabase.auth group.
-        Route::prefix('restaurants/{restaurant}')
-            ->group(function (): void {
-                Route::post('/media/logo', [RestaurantMediaController::class, 'logo']);
-                Route::post('/media/cover', [RestaurantMediaController::class, 'cover']);
-                Route::post('/menu-items/{menuItem}/media', [RestaurantMediaController::class, 'menuItemImage']);
-            });
-
         Route::prefix('admin')->middleware('admin')->group(function (): void {
             Route::get('/users', [AdminUserController::class, 'index']);
             Route::get('/restaurants', [AdminRestaurantController::class, 'index']);
@@ -210,3 +197,13 @@ Route::prefix('v2')->group(function (): void {
         });
     });
 });
+
+// Restaurant ownership is stored against Supabase Auth identities. These
+// endpoints deliberately do not require a duplicate Laravel users-table row.
+Route::middleware('supabase.identity')
+    ->prefix('v2/restaurants/{restaurant}')
+    ->group(function (): void {
+        Route::post('/media/logo', [RestaurantMediaController::class, 'logo']);
+        Route::post('/media/cover', [RestaurantMediaController::class, 'cover']);
+        Route::post('/menu-items/{menuItem}/media', [RestaurantMediaController::class, 'menuItemImage']);
+    });
