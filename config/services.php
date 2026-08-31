@@ -10,4 +10,9 @@ return [
     'expo' => [
         'access_token' => env('EXPO_ACCESS_TOKEN'),
     ],
+
+    'resend' => [
+        'key' => env('RESEND_API_KEY'),
+    ],
+
 ];
