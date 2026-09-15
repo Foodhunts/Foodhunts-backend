@@ -38,6 +38,27 @@ class OrderController extends Controller
     public function cancel(Request $request, Order $order): OrderResource
     {
         abort_unless($order->user_id === $request->user()->id, 403);
+
+        // Once a rider has collected the order the customer can no longer cancel
+        // it: the food is in transit and the rider is paid for the trip. Support
+        // cancels these from the admin dashboard instead, which is why the guard
+        // lives on this customer-only path rather than in the transition service.
+        $delivery = $order->delivery()->first();
+        $collected = [
+            \App\Enums\DeliveryStatus::PickedUp,
+            \App\Enums\DeliveryStatus::EnRouteDropoff,
+            \App\Enums\DeliveryStatus::ArrivedDropoff,
+        ];
+
+        if ($delivery !== null && in_array($delivery->status, $collected, true)) {
+            abort(409, 'Your order has already been picked up by the rider and can no longer be cancelled here. Please contact support.');
+        }
+
+        // Record who cancelled, so the dzpatch delivery bridge can tell a
+        // customer cancellation (blocked after pickup) from a support one
+        // (allowed to override pickup and clear the job off the rider's screen).
+        $order->forceFill(['cancelled_by' => 'customer'])->save();
+
         return new OrderResource($this->orderService->transition($order, \App\Enums\OrderStatus::Cancelled));
     }
 
