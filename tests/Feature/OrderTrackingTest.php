@@ -180,4 +180,17 @@ final class OrderTrackingTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.delivery', null);
     }
+
+    public function test_customer_cannot_cancel_an_order_and_status_stays_unchanged(): void
+    {
+        $response = $this->actingAsCustomer()
+            ->postJson('/api/v2/orders/'.self::ORDER_ID.'/cancel');
+
+        $response->assertStatus(409);
+        $response->assertSeeText('Order cancellations must be handled by Foodhunt support.');
+        $this->assertDatabaseHas('orders', [
+            'id' => self::ORDER_ID,
+            'status' => 'out_for_delivery',
+        ]);
+    }
 }
